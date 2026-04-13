@@ -116,10 +116,10 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
             )
             log("Repo copied")
 
-            await asyncio.to_thread(run_cmd, ["pnpm", "install"], tmp_dir, log)
+            await asyncio.to_thread(run_cmd, ["pnpm", "install"], cwd=tmp_dir, log=log)
             log("pnpm install complete")
 
-            await asyncio.to_thread(run_cmd, ["pnpm", "build"], tmp_dir, log)
+            await asyncio.to_thread(run_cmd, ["pnpm", "build"], cwd=tmp_dir, log=log)
             log("pnpm build complete")
 
             output_path = os.path.join(tmp_dir, req.output_dir)
