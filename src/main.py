@@ -103,6 +103,8 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
         store.update(build_id, logs=list(logs))
 
     async with SEMAPHORE:
+        if store.get(build_id) is None:
+            return  # build was deleted while queued
         tmp_dir = tempfile.mkdtemp(prefix="build_")
         store.update(build_id, status="running", tmp_dir=tmp_dir)
 
@@ -122,7 +124,9 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
             await asyncio.to_thread(run_cmd, ["pnpm", "build"], cwd=tmp_dir, log=log)
             log("pnpm build complete")
 
-            output_path = os.path.join(tmp_dir, req.output_dir)
+            output_path = os.path.realpath(os.path.join(tmp_dir, req.output_dir))
+            if not output_path.startswith(os.path.realpath(tmp_dir) + os.sep):
+                raise RuntimeError(f"output_dir escapes build directory: {req.output_dir!r}")
             if not os.path.exists(output_path):
                 raise RuntimeError(f"Output directory '{req.output_dir}' not found after build")
 
