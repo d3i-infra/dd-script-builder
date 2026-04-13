@@ -47,3 +47,35 @@ class BuildStore:
 
 
 store = BuildStore()
+
+
+# ----------------------------
+# Helpers
+# ----------------------------
+
+def run_cmd(
+    cmd: list[str],
+    cwd: str | None = None,
+    log: Callable[[str], None] = print,
+) -> str:
+    log(f"Running: {' '.join(cmd)}")
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    if result.stdout:
+        log(result.stdout.strip())
+    if result.stderr:
+        log(result.stderr.strip())
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Command failed: {' '.join(cmd)}\n"
+            f"Exit code: {result.returncode}\n"
+            f"stderr: {result.stderr}"
+        )
+    return result.stdout
+
+
+def zip_output(output_dir: str, tmp_dir: str) -> str:
+    return shutil.make_archive(
+        base_name=os.path.join(tmp_dir, "output"),
+        format="zip",
+        root_dir=output_dir,
+    )

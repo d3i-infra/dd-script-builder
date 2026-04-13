@@ -49,3 +49,39 @@ def test_all_returns_snapshot():
     # Mutating the snapshot should not affect the store
     result["id3"] = {}
     assert s.get("id3") is None
+
+
+import pytest
+from unittest.mock import MagicMock, patch
+from src.main import run_cmd
+
+
+def test_run_cmd_returns_stdout():
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout="hello\n", stderr="")
+        result = run_cmd(["echo", "hello"])
+        assert result == "hello\n"
+
+
+def test_run_cmd_failure_raises_runtime_error():
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="bad thing")
+        with pytest.raises(RuntimeError, match="Command failed"):
+            run_cmd(["false"])
+
+
+def test_run_cmd_calls_log_with_command():
+    logged = []
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        run_cmd(["echo", "hi"], log=logged.append)
+        assert any("echo" in entry for entry in logged)
+
+
+def test_run_cmd_passes_cwd():
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        run_cmd(["ls"], cwd="/tmp")
+        mock_run.assert_called_once()
+        _, kwargs = mock_run.call_args
+        assert kwargs["cwd"] == "/tmp"
