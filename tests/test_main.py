@@ -106,3 +106,95 @@ def test_zip_output_creates_archive():
         assert archive.endswith(".zip")
         with zipfile.ZipFile(archive) as zf:
             assert "bundle.js" in zf.namelist()
+
+
+import pytest
+from unittest.mock import AsyncMock, patch
+from fastapi.testclient import TestClient
+from src.main import app, store
+
+
+@pytest.fixture(autouse=True)
+def clear_store():
+    store._store.clear()
+    yield
+    store._store.clear()
+
+
+client = TestClient(app)
+
+
+def test_post_build_returns_build_id():
+    with patch("src.main.run_build", new=AsyncMock()):
+        resp = client.post("/build", json={})
+    assert resp.status_code == 200
+    assert "build_id" in resp.json()
+
+
+def test_post_build_queues_status():
+    with patch("src.main.run_build", new=AsyncMock()):
+        resp = client.post("/build", json={})
+    build_id = resp.json()["build_id"]
+    status_resp = client.get(f"/status/{build_id}")
+    assert status_resp.json()["status"] == "queued"
+
+
+def test_get_status_unknown_returns_404():
+    resp = client.get("/status/does-not-exist")
+    assert resp.status_code == 404
+
+
+def test_get_status_includes_logs():
+    store.create("test-id", {"status": "running", "logs": ["step 1", "step 2"]})
+    resp = client.get("/status/test-id")
+    assert resp.status_code == 200
+    assert resp.json()["logs"] == ["step 1", "step 2"]
+
+
+def test_download_unknown_returns_404():
+    resp = client.get("/download/does-not-exist")
+    assert resp.status_code == 404
+
+
+def test_download_not_done_returns_400():
+    store.create("test-id", {"status": "running", "logs": []})
+    resp = client.get("/download/test-id")
+    assert resp.status_code == 400
+
+
+def test_download_done_returns_zip():
+    with tempfile.TemporaryDirectory() as tmp:
+        # create a real zip file
+        output_dir = os.path.join(tmp, "releases")
+        os.makedirs(output_dir)
+        with open(os.path.join(output_dir, "file.js"), "w") as f:
+            f.write("x")
+        archive = zip_output(output_dir, tmp)
+        store.create("test-id", {"status": "done", "file": archive, "tmp_dir": tmp, "logs": []})
+        resp = client.get("/download/test-id")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/zip"
+
+
+def test_delete_unknown_returns_404():
+    resp = client.delete("/build/does-not-exist")
+    assert resp.status_code == 404
+
+
+def test_delete_removes_from_store_and_cleans_tmp():
+    with tempfile.TemporaryDirectory() as tmp:
+        store.create("test-id", {"status": "done", "tmp_dir": tmp, "logs": []})
+        resp = client.delete("/build/test-id")
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "deleted"}
+        assert store.get("test-id") is None
+
+
+def test_list_builds_returns_all():
+    store.create("id1", {"status": "queued", "logs": []})
+    store.create("id2", {"status": "running", "logs": []})
+    resp = client.get("/builds")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "id1" in body
+    assert "id2" in body
