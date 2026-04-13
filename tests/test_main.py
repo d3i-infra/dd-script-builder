@@ -85,3 +85,24 @@ def test_run_cmd_passes_cwd():
         mock_run.assert_called_once()
         _, kwargs = mock_run.call_args
         assert kwargs["cwd"] == "/tmp"
+
+
+import os
+import tempfile
+import zipfile
+from src.main import zip_output
+
+
+def test_zip_output_creates_archive():
+    with tempfile.TemporaryDirectory() as tmp:
+        output_dir = os.path.join(tmp, "releases")
+        os.makedirs(output_dir)
+        with open(os.path.join(output_dir, "bundle.js"), "w") as f:
+            f.write("console.log('hi')")
+
+        archive = zip_output(output_dir, tmp)
+
+        assert os.path.exists(archive)
+        assert archive.endswith(".zip")
+        with zipfile.ZipFile(archive) as zf:
+            assert "bundle.js" in zf.namelist()
