@@ -86,8 +86,9 @@ def zip_output(output_dir: str, tmp_dir: str) -> str:
 # ----------------------------
 
 class BuildRequest(BaseModel):
-    branch: str = "master"        # reserved for future git support
     output_dir: str = "releases"  # subdir of build output to zip
+    config: str               # config file contents to inject after copy
+    config_path: str          # path relative to build dir where config is written
 
 
 # ----------------------------
@@ -118,10 +119,15 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
             )
             log("Repo copied")
 
-            await asyncio.to_thread(run_cmd, ["pnpm", "install"], cwd=tmp_dir, log=log)
-            log("pnpm install complete")
+            inject_path = os.path.realpath(os.path.join(tmp_dir, req.config_path))
+            if not inject_path.startswith(os.path.realpath(tmp_dir) + os.sep):
+                raise RuntimeError(f"config_path escapes build directory: {req.config_path!r}")
+            os.makedirs(os.path.dirname(inject_path), exist_ok=True)
+            with open(inject_path, "w") as f:
+                f.write(req.config)
+            log(f"Config injected at: {req.config_path}")
 
-            await asyncio.to_thread(run_cmd, ["pnpm", "build"], cwd=tmp_dir, log=log)
+            await asyncio.to_thread(run_cmd, ["pnpm", "run", "release"], cwd=tmp_dir, log=log)
             log("pnpm build complete")
 
             output_path = os.path.realpath(os.path.join(tmp_dir, req.output_dir))

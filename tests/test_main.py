@@ -124,19 +124,32 @@ def clear_store():
 client = TestClient(app)
 
 
+MINIMAL_BUILD_REQ = {"config": "export default {}", "config_path": "src/config.js"}
+
+
 def test_post_build_returns_build_id():
     with patch("src.main.run_build", new=AsyncMock()):
-        resp = client.post("/build", json={})
+        resp = client.post("/build", json=MINIMAL_BUILD_REQ)
     assert resp.status_code == 200
     assert "build_id" in resp.json()
 
 
 def test_post_build_queues_status():
     with patch("src.main.run_build", new=AsyncMock()):
-        resp = client.post("/build", json={})
+        resp = client.post("/build", json=MINIMAL_BUILD_REQ)
     build_id = resp.json()["build_id"]
     status_resp = client.get(f"/status/{build_id}")
     assert status_resp.json()["status"] == "queued"
+
+
+def test_post_build_missing_config_returns_422():
+    resp = client.post("/build", json={})
+    assert resp.status_code == 422
+
+
+def test_post_build_missing_config_path_returns_422():
+    resp = client.post("/build", json={"config": "export default {}"})
+    assert resp.status_code == 422
 
 
 def test_get_status_unknown_returns_404():
