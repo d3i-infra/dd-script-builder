@@ -2,14 +2,20 @@ python3 -m uvicorn src.main:app --reload
 
 # --- curl commands ---
 
-# Trigger a build (defaults)
-curl -s -X POST http://localhost:8000/build -H "Content-Type: application/json" -d '{}'
+# Trigger a build (minimal required fields)
+curl -s -X POST http://localhost:8000/build \
+  -H "Content-Type: application/json" \
+  -d '{"config": "key: value\n", "documentation": {}}'
 
-# Trigger a build with explicit options
-curl -s -X POST http://localhost:8000/build -H "Content-Type: application/json" -d '{"output_dir": "releases"}'
+# Trigger a build with all options
+curl -s -X POST http://localhost:8000/build \
+  -H "Content-Type: application/json" \
+  -d '{"output_dir": "releases", "config": "key: value\n", "documentation": {"title": "My Build", "version": "1.0"}}'
 
-# Trigger a build with config injection
-curl -s -X POST http://localhost:8000/build -H "Content-Type: application/json" -d '{"output_dir": "releases", "config": "key: value\n", "config_path": "src/config.yaml"}'
+# Trigger a build with platform config
+curl -s -X POST http://localhost:8000/build \
+  -H "Content-Type: application/json" \
+  -d '{"config": "{\"platform\": \"instagram\"}", "documentation": {"platform": "instagram"}}'
 
 # List all builds
 curl -s http://localhost:8000/builds
@@ -25,8 +31,3 @@ curl -O -J http://localhost:8000/download/<build-id>
 
 # Delete / cleanup a build
 curl -s -X DELETE http://localhost:8000/build/<build-id>
-
-# Trigger a build with minimal config (platforms: instagram)
-curl -s -X POST http://localhost:8000/build \
-  -H "Content-Type: application/json" \
-  -d '{"config": "{\"platforms\": \"instagram\"}", "config_path": "port_config.json"}'

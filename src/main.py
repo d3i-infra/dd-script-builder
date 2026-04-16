@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import shutil
 import subprocess
@@ -81,14 +82,37 @@ def zip_output(output_dir: str, tmp_dir: str) -> str:
     )
 
 
+def format_doc_value(value, depth=0) -> str:
+    indent = "  " * depth
+    if isinstance(value, dict):
+        return "\n".join(
+            f"{indent}- {k.replace('_', ' ').title()}: {v}"
+            if not isinstance(v, (dict, list))
+            else f"{indent}- {k.replace('_', ' ').title()}:\n{format_doc_value(v, depth + 1)}"
+            for k, v in value.items()
+        )
+    elif isinstance(value, list):
+        return "\n".join(
+            f"{indent}- {item}"
+            if not isinstance(item, (dict, list))
+            else f"{indent}-\n{format_doc_value(item, depth + 1)}"
+            for item in value
+        )
+    else:
+        return f"{indent}{value}"
+
+
 # ----------------------------
 # Request model
 # ----------------------------
 
+CONFIG_PATH = "packages/python/port/port_config.json"
+
+
 class BuildRequest(BaseModel):
     output_dir: str = "releases"  # subdir of build output to zip
     config: str               # config file contents to inject after copy
-    config_path: str          # path relative to build dir where config is written
+    documentation: dict       # documentation to write into the zip
 
 
 # ----------------------------
@@ -119,13 +143,11 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
             )
             log("Repo copied")
 
-            inject_path = os.path.realpath(os.path.join(tmp_dir, req.config_path))
-            if not inject_path.startswith(os.path.realpath(tmp_dir) + os.sep):
-                raise RuntimeError(f"config_path escapes build directory: {req.config_path!r}")
+            inject_path = os.path.join(tmp_dir, CONFIG_PATH)
             os.makedirs(os.path.dirname(inject_path), exist_ok=True)
             with open(inject_path, "w") as f:
                 f.write(req.config)
-            log(f"Config injected at: {req.config_path}")
+            log(f"Config injected at: {CONFIG_PATH}")
 
             await asyncio.to_thread(run_cmd, ["pnpm", "run", "release"], cwd=tmp_dir, log=log)
             log("pnpm build complete")
@@ -135,6 +157,20 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
                 raise RuntimeError(f"output_dir escapes build directory: {req.output_dir!r}")
             if not os.path.exists(output_path):
                 raise RuntimeError(f"Output directory '{req.output_dir}' not found after build")
+
+            commit_result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=REPO_SOURCE, capture_output=True, text=True,
+            )
+            commit_hash = commit_result.stdout.strip() if commit_result.returncode == 0 else "unknown"
+
+            doc = {**req.documentation, "commit_hash": commit_hash}
+            with open(os.path.join(output_path, "documentation.txt"), "w") as f:
+                for key, value in doc.items():
+                    f.write(f"## {key.replace('_', ' ').title()}\n\n")
+                    f.write(format_doc_value(value))
+                    f.write("\n\n")
+            log("Documentation written")
 
             archive_path = await asyncio.to_thread(zip_output, output_path, tmp_dir)
             log(f"Archive created: {archive_path}")

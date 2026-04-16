@@ -124,7 +124,7 @@ def clear_store():
 client = TestClient(app)
 
 
-MINIMAL_BUILD_REQ = {"config": "export default {}", "config_path": "src/config.js"}
+MINIMAL_BUILD_REQ = {"config": "export default {}", "documentation": {}}
 
 
 def test_post_build_returns_build_id():
@@ -146,10 +146,6 @@ def test_post_build_missing_config_returns_422():
     resp = client.post("/build", json={})
     assert resp.status_code == 422
 
-
-def test_post_build_missing_config_path_returns_422():
-    resp = client.post("/build", json={"config": "export default {}"})
-    assert resp.status_code == 422
 
 
 def test_get_status_unknown_returns_404():
