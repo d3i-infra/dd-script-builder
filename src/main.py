@@ -15,7 +15,9 @@ from pydantic import BaseModel
 # Constants
 # ----------------------------
 
-REPO_SOURCE = "/home/turbo/d3i/dd-script-selector/data-donation-task"
+REPO_SOURCE = os.environ.get("REPO_SOURCE")
+if not REPO_SOURCE:
+    raise RuntimeError("REPO_SOURCE environment variable is required")
 MAX_CONCURRENT_BUILDS = 5
 SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT_BUILDS)
 
