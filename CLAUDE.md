@@ -14,6 +14,9 @@ python3 -m uvicorn src.main:app --reload
 
 # Run tests
 pytest
+
+# Get a platform config (server must be running)
+curl "http://localhost:8000/config?platform=<platform_name>"
 ```
 
 ## Key constants in src/main.py

@@ -207,3 +207,32 @@ def test_list_builds_returns_all():
     body = resp.json()
     assert "id1" in body
     assert "id2" in body
+
+
+def test_get_config_returns_json():
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout='{"key": "value"}', stderr="")
+        resp = client.get("/config?platform=instagram")
+    assert resp.status_code == 200
+    assert resp.json() == {"key": "value"}
+
+
+def test_get_config_command_failure_returns_500():
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="unknown platform")
+        resp = client.get("/config?platform=bad")
+    assert resp.status_code == 500
+    assert "generate-config failed" in resp.json()["detail"]
+
+
+def test_get_config_invalid_json_returns_500():
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout="not json", stderr="")
+        resp = client.get("/config?platform=instagram")
+    assert resp.status_code == 500
+    assert "valid JSON" in resp.json()["detail"]
+
+
+def test_get_config_missing_platform_returns_422():
+    resp = client.get("/config")
+    assert resp.status_code == 422

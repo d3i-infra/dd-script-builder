@@ -189,6 +189,22 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
 # Routes
 # ----------------------------
 
+@app.get("/config")
+def get_config(platform: str):
+    result = subprocess.run(
+        ["pnpm", "run", "--silent", "generate-config", platform, "--stdout"],
+        cwd=REPO_SOURCE,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise HTTPException(500, f"generate-config failed: {result.stderr.strip()}")
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        raise HTTPException(500, "generate-config did not return valid JSON")
+
+
 @app.post("/build")
 def create_build(req: BuildRequest, bg: BackgroundTasks):
     build_id = str(uuid.uuid4())
