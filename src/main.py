@@ -84,26 +84,6 @@ def zip_output(output_dir: str, tmp_dir: str) -> str:
     )
 
 
-def format_doc_value(value, depth=0) -> str:
-    indent = "  " * depth
-    if isinstance(value, dict):
-        return "\n".join(
-            f"{indent}- {k.replace('_', ' ').title()}: {v}"
-            if not isinstance(v, (dict, list))
-            else f"{indent}- {k.replace('_', ' ').title()}:\n{format_doc_value(v, depth + 1)}"
-            for k, v in value.items()
-        )
-    elif isinstance(value, list):
-        return "\n".join(
-            f"{indent}- {item}"
-            if not isinstance(item, (dict, list))
-            else f"{indent}-\n{format_doc_value(item, depth + 1)}"
-            for item in value
-        )
-    else:
-        return f"{indent}{value}"
-
-
 # ----------------------------
 # Request model
 # ----------------------------
@@ -114,7 +94,7 @@ CONFIG_PATH = "packages/python/port/port_config.json"
 class BuildRequest(BaseModel):
     output_dir: str = "releases"  # subdir of build output to zip
     config: str               # config file contents to inject after copy
-    documentation: dict       # documentation to write into the zip
+    documentation: str        # pre-formatted documentation to write into the zip
 
 
 # ----------------------------
@@ -166,12 +146,9 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
             )
             commit_hash = commit_result.stdout.strip() if commit_result.returncode == 0 else "unknown"
 
-            doc = {**req.documentation, "commit_hash": commit_hash}
             with open(os.path.join(output_path, "documentation.txt"), "w") as f:
-                for key, value in doc.items():
-                    f.write(f"## {key.replace('_', ' ').title()}\n\n")
-                    f.write(format_doc_value(value))
-                    f.write("\n\n")
+                f.write(req.documentation)
+                f.write(f"\n\n---\nCommit: {commit_hash}\n")
             log("Documentation written")
 
             archive_path = await asyncio.to_thread(zip_output, output_path, tmp_dir)

@@ -124,7 +124,7 @@ def clear_store():
 client = TestClient(app)
 
 
-MINIMAL_BUILD_REQ = {"config": "export default {}", "documentation": {}}
+MINIMAL_BUILD_REQ = {"config": "export default {}", "documentation": ""}
 
 
 def test_post_build_returns_build_id():
