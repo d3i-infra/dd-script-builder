@@ -87,6 +87,15 @@ def test_run_cmd_passes_cwd():
         assert kwargs["cwd"] == "/tmp"
 
 
+def test_run_cmd_passes_env():
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        env = {"VITE_PLATFORM": "instagram"}
+        run_cmd(["pnpm", "run", "release"], env=env)
+        _, kwargs = mock_run.call_args
+        assert kwargs["env"] == env
+
+
 import os
 import tempfile
 import zipfile
@@ -124,7 +133,7 @@ def clear_store():
 client = TestClient(app)
 
 
-MINIMAL_BUILD_REQ = {"config": "export default {}", "documentation": ""}
+MINIMAL_BUILD_REQ = {"platform": "instagram", "config": "export default {}", "documentation": ""}
 
 
 def test_post_build_returns_build_id():
@@ -143,7 +152,12 @@ def test_post_build_queues_status():
 
 
 def test_post_build_missing_config_returns_422():
-    resp = client.post("/build", json={})
+    resp = client.post("/build", json={"platform": "instagram", "documentation": ""})
+    assert resp.status_code == 422
+
+
+def test_post_build_missing_platform_returns_422():
+    resp = client.post("/build", json={"config": "export default {}", "documentation": ""})
     assert resp.status_code == 422
 
 

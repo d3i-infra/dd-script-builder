@@ -15,9 +15,9 @@ from pydantic import BaseModel
 # Constants
 # ----------------------------
 
-REPO_SOURCE = os.environ.get("REPO_SOURCE")
-if not REPO_SOURCE:
-    raise RuntimeError("REPO_SOURCE environment variable is required")
+TASK_SOURCE = os.environ.get("TASK_SOURCE")
+if not TASK_SOURCE:
+    raise RuntimeError("TASK_SOURCE environment variable is required")
 MAX_CONCURRENT_BUILDS = 5
 SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT_BUILDS)
 
@@ -60,9 +60,10 @@ def run_cmd(
     cmd: list[str],
     cwd: str | None = None,
     log: Callable[[str], None] = print,
+    env: dict | None = None,
 ) -> str:
     log(f"Running: {' '.join(cmd)}")
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env)
     if result.stdout:
         log(result.stdout.strip())
     if result.stderr:
@@ -88,10 +89,15 @@ def zip_output(output_dir: str, tmp_dir: str) -> str:
 # Request model
 # ----------------------------
 
-CONFIG_PATH = "packages/python/port/port_config.json"
+CONFIGS_DIR = "packages/python/port/configs"
+
+
+def config_path(platform: str) -> str:
+    return f"{CONFIGS_DIR}/{platform}_config.json"
 
 
 class BuildRequest(BaseModel):
+    platform: str             # platform name (e.g. "instagram"); determines config path and VITE_PLATFORM
     output_dir: str = "releases"  # subdir of build output to zip
     config: str               # config file contents to inject after copy
     documentation: str        # pre-formatted documentation to write into the zip
@@ -120,18 +126,20 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
 
             await asyncio.to_thread(
                 run_cmd,
-                ["cp", "-r", f"{REPO_SOURCE}/.", tmp_dir],
+                ["cp", "-r", f"{TASK_SOURCE}/.", tmp_dir],
                 log=log,
             )
             log("Repo copied")
 
-            inject_path = os.path.join(tmp_dir, CONFIG_PATH)
+            cfg_path = config_path(req.platform)
+            inject_path = os.path.join(tmp_dir, cfg_path)
             os.makedirs(os.path.dirname(inject_path), exist_ok=True)
             with open(inject_path, "w") as f:
                 f.write(req.config)
-            log(f"Config injected at: {CONFIG_PATH}")
+            log(f"Config injected at: {cfg_path}")
 
-            await asyncio.to_thread(run_cmd, ["pnpm", "run", "release"], cwd=tmp_dir, log=log)
+            release_env = {**os.environ, "VITE_PLATFORM": req.platform}
+            await asyncio.to_thread(run_cmd, ["pnpm", "run", "release"], cwd=tmp_dir, log=log, env=release_env)
             log("pnpm build complete")
 
             output_path = os.path.realpath(os.path.join(tmp_dir, req.output_dir))
@@ -142,7 +150,7 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
 
             commit_result = subprocess.run(
                 ["git", "rev-parse", "HEAD"],
-                cwd=REPO_SOURCE, capture_output=True, text=True,
+                cwd=TASK_SOURCE, capture_output=True, text=True,
             )
             commit_hash = commit_result.stdout.strip() if commit_result.returncode == 0 else "unknown"
 
@@ -170,7 +178,7 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
 def get_config(platform: str):
     result = subprocess.run(
         ["pnpm", "run", "--silent", "generate-config", platform, "--stdout"],
-        cwd=REPO_SOURCE,
+        cwd=TASK_SOURCE,
         capture_output=True,
         text=True,
     )
