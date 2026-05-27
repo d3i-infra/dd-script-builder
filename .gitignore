@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .worktrees/
 .worktrees
+build/
+build.zip
