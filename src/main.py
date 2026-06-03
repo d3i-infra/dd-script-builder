@@ -156,7 +156,7 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
 
             with open(os.path.join(output_path, "documentation.txt"), "w") as f:
                 f.write(req.documentation)
-                f.write(f"\n\n---\nCommit: {commit_hash}\n")
+                f.write(f"\n\n---\n\n## Build information\n\nThis flow was generated from commit `{commit_hash}` of the data-donation-task repository.\n\nView the source code at: https://github.com/d3i-infra/data-donation-task/commit/{commit_hash}\n")
             log("Documentation written")
 
             archive_path = await asyncio.to_thread(zip_output, output_path, tmp_dir)
