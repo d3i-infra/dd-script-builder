@@ -131,6 +131,13 @@ async def run_build(build_id: str, req: BuildRequest) -> None:
             )
             log("Repo copied")
 
+            # Remove any pre-existing release artifacts so the output zip only
+            # contains files produced by this build.
+            releases_dir = os.path.join(tmp_dir, req.output_dir)
+            if os.path.exists(releases_dir):
+                shutil.rmtree(releases_dir)
+                log(f"Cleared pre-existing output dir: {req.output_dir}")
+
             cfg_path = config_path(req.platform)
             inject_path = os.path.join(tmp_dir, cfg_path)
             os.makedirs(os.path.dirname(inject_path), exist_ok=True)
