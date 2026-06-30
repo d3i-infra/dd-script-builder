@@ -17,12 +17,15 @@ read it first.
 - [0003 — In-memory build store, no persistence](./0003-in-memory-build-store-no-persistence.md)
 - [0004 — Async semaphore-bounded build execution](./0004-async-semaphore-bounded-build-execution.md)
 - [0006 — TASK_SOURCE required env var; fail fast on startup](./0006-task-source-required-env-var-fail-fast.md)
+- [0011 — TASK_SOURCE is a local path; repo copied with cp -r](./0011-task-source-as-local-path-copied-with-cp.md)
 
 ### Build pipeline
 
 - [0005 — Config injection at per-platform path inside build dir](./0005-config-injection-at-hardcoded-path.md)
 - [0009 — Provenance documentation written into every artifact](./0009-provenance-documentation-in-artifact.md)
 - [0010 — pnpm as the JS build tool](./0010-pnpm-as-build-tool.md)
+- [0012 — Pre-existing output dir wiped before build](./0012-pre-existing-output-dir-wiped-before-build.md)
+- [0013 — /config route runs generate-config against TASK_SOURCE directly](./0013-config-route-runs-against-task-source-directly.md)
 
 ### Resource management
 
@@ -36,7 +39,8 @@ read it first.
 
 When working on code in this repo, load the ADR(s) whose
 filenames match the area you are touching. Before adding a new
-route, read 0002. Before changing build flow, read 0004 and 0005.
+route, read 0002. Before changing build flow, read 0004, 0005,
+0011, and 0012. Before touching the config route, read 0013.
 Before touching cleanup, read 0007. Before any path handling,
 read 0008.
 

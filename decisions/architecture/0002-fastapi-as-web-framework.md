@@ -10,6 +10,6 @@ handle async build execution.
 
 ## Implication
 
-New routes are added as FastAPI path-operation functions. Request
-bodies are declared as `BaseModel` subclasses. Do not introduce a
-second framework (Flask, Django, etc.).
+- New routes are added as FastAPI path-operation functions.
+- Request bodies are declared as `BaseModel` subclasses.
+- Do not introduce a second framework (Flask, Django, etc.).
